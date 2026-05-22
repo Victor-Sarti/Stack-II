@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Stack criada para estudos utilizando AWS CloudFormation.
+  Este template cria uma instância EC2 com Security Group
+  liberando acesso SSH e HTTP.
+
+Parameters:
+
+  # Parâmetro responsável por receber uma Key Pair já existente na AWS
+  # Utilizada para autenticação SSH na instância EC2
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Nome da Key Pair existente para acesso SSH
+
+  # Define o tipo da instância permitindo reutilização do template
+  # sem necessidade de alterar diretamente o código
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+    Description: Tipo da instância EC2
+
+Resources:
+
+  # Security Group responsável por controlar regras de entrada da instância
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group para permitir SSH e HTTP
+
+      SecurityGroupIngress:
+      Tags:
+        - Key: Name
+          Value: dio-security-group
+
+  # Criação da instância EC2
+  EC2Instance:
+    Type: AWS::EC2::Instance
+
+    Properties:
+
+      # AMI Amazon Linux 2023
+      # Pode variar dependendo da região da AWS
+      ImageId: ami-0c101f26f147fa7fd
+
+      # Referência dinâmica ao parâmetro InstanceType
+      InstanceType: !Ref InstanceType
+
+      # Associação da Key Pair para acesso SSH
+      KeyName: !Ref KeyPairName
+
+      # Associação do Security Group criado anteriormente
+      SecurityGroups:
+        - !Ref EC2SecurityGroup
+
+      Tags:
+        - Key: Name
+          Value: dio-cloudformation-ec2
+
+      # Script executado automaticamente no primeiro boot da instância
+      # Utilizado para automação da configuração do servidor
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          
+          yum update -y
+          
+          # Instalação do servidor web Nginx
+          yum install -y nginx
+          
+          # Inicializa o serviço
+          systemctl start nginx
+          
+          # Garante inicialização automática após reboot
+          systemctl enable nginx
+
+Outputs:
+
+  # Retorna o ID da instância criada
+  InstanceId:
+    Description: ID da instância EC2 criada
+    Value: !Ref EC2Instance
+
+  # Exibe o IP público da instância
+  PublicIP:
+    Description: Endereço IP público da instância
+    Value: !GetAtt EC2Instance.PublicIp
+
+  # Exibe o DNS público para acesso via navegador
+  PublicDNS:
+    Description: DNS público da instância
+    Value: !GetAtt EC2Instance.PublicDnsName
